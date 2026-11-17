@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>间奏</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="window" aria-label="间奏播放器">
+    <div class="drag-area" aria-hidden="true"></div>
+    <canvas id="turntable" aria-hidden="true"></canvas>
+    <section class="access-controls" id="turntable-fallback" aria-label="播放器控制">
+      <div class="accessible-header">
+        <strong>间奏</strong>
+        <button id="pin" type="button" aria-label="保持窗口置顶" aria-pressed="false">置顶</button>
+      </div>
+      <div class="sources" role="group" aria-label="音乐来源">
+        <button class="source" data-source="spotify" type="button" aria-pressed="false">Spotify</button>
+        <button class="source" data-source="music" type="button" aria-pressed="false">Apple Music</button>
+      </div>
+      <div class="track-info" aria-live="polite">
+        <div id="status">等待播放</div>
+        <h1 id="title">还没有播放音乐</h1>
+        <p id="artist">打开音乐应用，播放一首歌。</p>
+        <p id="album" hidden></p>
+      </div>
+      <div class="timeline">
+        <input id="seek" type="range" min="0" max="1" value="0" step="0.1" aria-label="播放进度" disabled>
+        <div class="times"><span id="elapsed">0:00</span><span id="remaining">0:00</span></div>
+      </div>
+      <div class="controls">
+        <button id="previous" type="button" aria-label="上一首" disabled>上一首</button>
+        <button id="play" class="play" type="button" aria-label="播放" disabled>播放</button>
+        <button id="next" type="button" aria-label="下一首" disabled>下一首</button>
+      </div>
+      <p id="message" class="message" role="status"></p>
+    </section>
+  </main>
+  <script src="turntable.js"></script>
+  <script src="renderer.js"></script>
+</body>
+</html>

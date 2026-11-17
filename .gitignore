@@ -1,0 +1,16 @@
+# Keep the repository focused on the app and packaging source.
+/outputs/
+/work/*
+!/work/app/
+!/work/packaging/
+
+# Dependencies and generated build artifacts.
+**/node_modules/
+/work/packaging/build/
+/work/packaging/icon-test/
+*.dmg
+*.app
+.DS_Store
+.env
+.env.*
+!.env.example

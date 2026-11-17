@@ -1,0 +1,15 @@
+{
+  "name": "jianzou",
+  "productName": "间奏",
+  "version": "0.1.0",
+  "description": "Mac 桌面音乐控制器",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "build:turntable": "esbuild src/turntable.js --bundle --minify --outfile=turntable.js"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "three": "0.187.0"
+  }
+}
