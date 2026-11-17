@@ -32,8 +32,9 @@ h1 { margin: 10px 0 5px; font-size: 25px; white-space: nowrap; overflow: hidden;
 .timeline input { display: block; width: 100%; accent-color: #e8cd53; }
 .times { justify-content: space-between; margin: 4px 2px 0; color: #c5c0b4; font-size: 12px; font-variant-numeric: tabular-nums; }
 .controls { justify-content: center; gap: 12px; margin-top: 24px; }
-/* Focus follows the keys on the machine from top to bottom; this view keeps the usual order. */
-#previous { order: -1; }
+.modes { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 14px; }
+.modes button { font-size: 13px; }
+.modes input { flex: 1; min-width: 0; margin-left: 10px; accent-color: #e8cd53; }
 .play { background: #d8b631; color: #242322; min-width: 70px; }
 .play:hover:not(:disabled) { background: #e8cd53; }
 .message { color: #ffb6a8; font-size: 12px; line-height: 1.5; margin: 18px 0 0; }

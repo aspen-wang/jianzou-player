@@ -1,7 +1,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const sourceButtons = [...document.querySelectorAll('.source')];
-  const ui = Object.fromEntries(['status', 'title', 'artist', 'album', 'seek', 'elapsed', 'remaining', 'previous', 'play', 'next', 'message', 'pin', 'turntable-fallback'].map(id => [id, $(id)]));
+  const ui = Object.fromEntries(['status', 'title', 'artist', 'album', 'seek', 'elapsed', 'remaining', 'previous', 'play', 'next', 'shuffle', 'repeat', 'volume', 'message', 'pin', 'turntable-fallback'].map(id => [id, $(id)]));
   let selected = null;
   let manuallySelected = false;
   let currentState = {sources: {}, activeSource: null};
@@ -12,6 +12,10 @@
   let commandBusy = false;
   let commandError = '';
   let alwaysOnTop = false;
+  // The volume the listener is setting, shown at once and sent one step at a time.
+  let volumeLocal = null;
+  let volumeBusy = false;
+  let volumeNext = null;
 
   const sourceName = (source) => source === 'spotify' ? 'Spotify' : 'Apple Music';
   const time = (seconds) => {
@@ -43,6 +47,14 @@
     // keyboard focus, and command() already ignores a second press.
     for (const button of [ui.previous, ui.play, ui.next]) button.disabled = !hasTrack;
     ui.seek.disabled = !hasTrack || duration <= 0;
+    const volume = volumeLocal ?? (Number.isFinite(track.volume) ? track.volume : null);
+    const repeat = track.repeat || 'off';
+    ui.shuffle.disabled = ui.repeat.disabled = !track.running;
+    ui.shuffle.setAttribute('aria-pressed', String(Boolean(track.shuffle)));
+    ui.repeat.setAttribute('aria-pressed', String(repeat !== 'off'));
+    ui.repeat.setAttribute('aria-label', repeat === 'one' ? '循环播放：单曲' : repeat === 'all' ? '循环播放：全部' : '循环播放：关');
+    ui.volume.disabled = volume === null;
+    if (volume !== null) { ui.volume.value = String(volume); ui.volume.setAttribute('aria-valuetext', `${Math.round(volume)}%`); }
     ui.play.setAttribute('aria-label', track.playing && hasTrack ? '暂停' : '播放');
     setText(ui.play, track.playing && hasTrack ? '暂停' : '播放');
     ui.pin.setAttribute('aria-pressed', String(alwaysOnTop));
@@ -56,7 +68,7 @@
     }
     setText(ui.message, error);
     try {
-      window.turntable?.update?.({selected, sources, track, error, alwaysOnTop, focus: document.hasFocus() ? focused : null});
+      window.turntable?.update?.({selected, sources, track: volume === null ? track : {...track, volume}, error, alwaysOnTop, focus: document.hasFocus() ? focused : null});
     } catch (_) {
       ui['turntable-fallback'].classList.add('visible');
     }
@@ -68,6 +80,7 @@
     try {
       currentState = await window.player.getState();
       stateStamp = performance.now();
+      if (!volumeBusy) volumeLocal = null;
       render();
     } catch (_) {
       commandError = '无法读取播放状态，请重试。';
@@ -76,8 +89,10 @@
   }
   async function command(action, value) {
     const track = currentState.sources?.[selected];
-    if (!selected || !window.player || commandBusy || !track?.running || !track?.title) return;
-    if (!['playPause', 'previous', 'next', 'seek'].includes(action)) return;
+    if (!selected || !window.player || commandBusy || !track?.running) return;
+    if (!['playPause', 'previous', 'next', 'seek', 'shuffle', 'repeat'].includes(action)) return;
+    // Shuffle and repeat belong to the player; everything else needs a track.
+    if (!track.title && action !== 'shuffle' && action !== 'repeat') return;
     if (action === 'seek' && (!Number.isFinite(value) || value < 0 || value > Number(track.duration || 0))) return;
     commandBusy = true;
     commandError = '';
@@ -111,15 +126,37 @@
     } catch (_) { commandError = '无法更改窗口置顶设置。'; }
     render();
   }
+  // The wheel can turn faster than the player answers, so only the newest
+  // volume waits while one is being set.
+  async function setVolume(value) {
+    const track = currentState.sources?.[selected];
+    if (!window.player || !track?.running || !Number.isFinite(value)) return;
+    volumeLocal = Math.round(Math.min(100, Math.max(0, value)));
+    render();
+    if (volumeBusy) { volumeNext = volumeLocal; return; }
+    volumeBusy = true;
+    try {
+      for (let target = volumeLocal; target !== null; target = volumeNext) {
+        volumeNext = null;
+        await window.player.command(selected, 'volume', target);
+      }
+    } catch (err) {
+      commandError = err?.message || '无法调整音量。';
+    } finally {
+      volumeBusy = false;
+      refresh();
+    }
+  }
   function action(name, value) {
     if (name === 'source') selectSource(value);
     else if (name === 'pin') togglePin();
+    else if (name === 'volume') setVolume(value);
     else command(name, value);
   }
   // These controls are worked from the keyboard while the machine is on screen,
   // so each press also moves the matching key and focus is shown on the machine.
   const press = (name) => window.turntable?.press?.(name);
-  const focusNames = {pin: 'pin', play: 'playPause', previous: 'previous', next: 'next', seek: 'seek'};
+  const focusNames = {pin: 'pin', play: 'playPause', previous: 'previous', next: 'next', shuffle: 'shuffle', repeat: 'repeat', volume: 'volume', seek: 'seek'};
   ui['turntable-fallback'].addEventListener('focusin', (event) => { focused = event.target.dataset?.source || focusNames[event.target.id] || null; render(); });
   ui['turntable-fallback'].addEventListener('focusout', () => { focused = null; render(); });
   window.addEventListener('focus', render);
@@ -129,6 +166,9 @@
   ui.play.addEventListener('click', () => { press('playPause'); command('playPause'); });
   ui.previous.addEventListener('click', () => { press('previous'); command('previous'); });
   ui.next.addEventListener('click', () => { press('next'); command('next'); });
+  ui.shuffle.addEventListener('click', () => { press('shuffle'); command('shuffle'); });
+  ui.repeat.addEventListener('click', () => { press('repeat'); command('repeat'); });
+  ui.volume.addEventListener('input', () => setVolume(Number(ui.volume.value)));
   // Arrow keys move the stylus five seconds at a time; Home returns to the start.
   ui.seek.addEventListener('keydown', (event) => {
     const step = {ArrowRight: 5, ArrowUp: 5, ArrowLeft: -5, ArrowDown: -5, Home: -Infinity}[event.key];

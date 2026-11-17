@@ -13,7 +13,7 @@ let windowRef;
 let pendingState;
 
 function emptyState() {
-  return { running: false, playing: false, title: '', artist: '', album: '', duration: 0, position: 0, artworkUrl: null, error: null };
+  return { running: false, playing: false, title: '', artist: '', album: '', duration: 0, position: 0, artworkUrl: null, volume: null, shuffle: false, repeat: 'off', error: null };
 }
 
 async function processRunning(name) {
@@ -87,6 +87,10 @@ async function sourceState(source) {
       result.position = Number(a.playerPosition() || 0);
       ${source === 'spotify' ? "try { result.artworkUrl = String(track.artworkUrl() || ''); } catch (_) {}" : ''}
     } catch (_) {}
+    // The two apps name these differently; Spotify only repeats a whole context.
+    try { result.volume = Number(a.soundVolume()); } catch (_) {}
+    try { result.shuffle = Boolean(${source === 'spotify' ? 'a.shuffling()' : 'a.shuffleEnabled()'}); } catch (_) {}
+    try { result.repeat = ${source === 'spotify' ? "a.repeating() ? 'all' : 'off'" : 'String(a.songRepeat())'}; } catch (_) {}
     return JSON.stringify(result);
   }`;
   try {
@@ -121,16 +125,23 @@ async function getState() {
 
 async function command(source, action, value) {
   const name = applications[source];
-  const commands = { playPause: 'a.playpause()', next: 'a.nextTrack()', previous: 'a.previousTrack()' };
+  const commands = {
+    playPause: 'a.playpause()', next: 'a.nextTrack()', previous: 'a.previousTrack()',
+    shuffle: source === 'spotify' ? 'a.shuffling = !a.shuffling()' : 'a.shuffleEnabled = !a.shuffleEnabled()',
+    // Apple Music steps through off, all, one; Spotify can only switch repeat on or off.
+    repeat: source === 'spotify' ? 'a.repeating = !a.repeating()' : "var mode = String(a.songRepeat()); a.songRepeat = mode === 'off' ? 'all' : mode === 'all' ? 'one' : 'off'"
+  };
   let statement = commands[action];
   if (action === 'seek' && Number.isFinite(value) && value >= 0 && value <= 86400) statement = `a.playerPosition = ${value}`;
+  if (action === 'volume' && Number.isFinite(value) && value >= 0 && value <= 100) statement = `a.soundVolume = ${Math.round(value)}`;
   if (!name || !statement) throw new Error('无效操作');
   if (!(await processRunning(name))) throw new Error(`请先打开 ${name === 'Music' ? 'Apple Music' : name}。`);
   const code = `function run() { var a=Application(${JSON.stringify(name)}); if (!a.running()) return 'not-running'; ${statement}; return 'ok'; }`;
   try {
     const result = await execute('/usr/bin/osascript', ['-l', 'JavaScript', '-e', code], { timeout: 5000, maxBuffer: 1024 * 1024 });
     if (result.stdout.trim() !== 'ok') throw new Error('not-running');
-    return await getState();
+    // The wheel sends many steps in a row; the next poll reports where it landed.
+    return action === 'volume' ? null : await getState();
   } catch (err) { throw new Error(scriptError(err, name === 'Music' ? 'Apple Music' : name)); }
 }
 
