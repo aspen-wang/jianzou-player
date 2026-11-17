@@ -14,7 +14,6 @@ button { cursor: pointer; }
 button:disabled { cursor: default; opacity: .45; }
 button:focus-visible, input:focus-visible { outline: 3px solid #e8cd53; outline-offset: 3px; }
 .access-controls { position: fixed; left: -10000px; top: 46px; width: 390px; padding: 24px; background: #29292b; border-radius: 14px; box-shadow: 0 12px 40px #0009; z-index: 5; }
-.access-controls:focus-within { left: 50%; transform: translateX(-50%); }
 .access-controls.visible { left: 50%; top: 50%; transform: translate(-50%, -50%); width: min(520px, calc(100vw - 48px)); }
 .accessible-header, .sources, .controls, .times { display: flex; align-items: center; }
 .accessible-header { justify-content: space-between; margin-bottom: 22px; }
@@ -33,6 +32,8 @@ h1 { margin: 10px 0 5px; font-size: 25px; white-space: nowrap; overflow: hidden;
 .timeline input { display: block; width: 100%; accent-color: #e8cd53; }
 .times { justify-content: space-between; margin: 4px 2px 0; color: #c5c0b4; font-size: 12px; font-variant-numeric: tabular-nums; }
 .controls { justify-content: center; gap: 12px; margin-top: 24px; }
+/* Focus follows the keys on the machine from top to bottom; this view keeps the usual order. */
+#previous { order: -1; }
 .play { background: #d8b631; color: #242322; min-width: 70px; }
 .play:hover:not(:disabled) { background: #e8cd53; }
 .message { color: #ffb6a8; font-size: 12px; line-height: 1.5; margin: 18px 0 0; }

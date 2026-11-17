@@ -397,7 +397,7 @@ function build(canvas, fail) {
     const group = new THREE.Group(); group.position.set(x, y, base); deck.add(group);
     const cap = box(w, h, depth, keycap(), 0, 0, 0, 0.022, group);
     cap.userData.action = action; hits.push(cap);
-    controls[action] = { group, cap, base, face: face(w, h, 0, 0, depth + 0.002, group), travel: 0, held: false, sunk: false, mark: '' };
+    controls[action] = { group, cap, base, face: face(w, h, 0, 0, depth + 0.002, group), travel: 0, held: false, pulse: 0, sunk: false, mark: '' };
     return controls[action];
   }
   const keyWidth = BLOCK.w - 0.16;
@@ -406,6 +406,18 @@ function build(canvas, fail) {
   key('playPause', BLOCK.x, 1.235, keyWidth, 0.52);
   key('previous', BLOCK.x - 0.2225, 0.71, 0.415, 0.4);
   key('next', BLOCK.x + 0.2225, 0.71, 0.415, 0.4);
+
+  // Keyboard focus on the tonearm: a ring around the headshell, edged in dark so
+  // it reads on any record colour.
+  const armFocus = face(0.7, 0.7, ARM.length - 0.02, 0, 0.05, arm);
+  armFocus.mesh.visible = false;
+  {
+    const { g, w, texture } = armFocus, centre = w / 2, radius = 0.27 * DENSITY;
+    g.beginPath(); g.arc(centre, centre, radius, 0, Math.PI * 2);
+    g.lineWidth = 0.05 * DENSITY; g.strokeStyle = 'rgba(23,23,23,.85)'; g.stroke();
+    g.lineWidth = 0.026 * DENSITY; g.strokeStyle = ENGRAVED.on; g.stroke();
+    texture.needsUpdate = true;
+  }
 
   // ---- lamp and the key that pins the window -----------------------------
   const tubeLength = LAMP.x1 - LAMP.x0, tubeX = (LAMP.x0 + LAMP.x1) / 2, tubeZ = TOP + LAMP.r;
@@ -444,8 +456,8 @@ function build(canvas, fail) {
     if (line && lines.length < most) lines.push(line);
     return lines;
   }
-  function mark(control, name, colour, size) {
-    const signature = `${name}|${colour}`;
+  function mark(control, name, colour, size, focused) {
+    const signature = `${name}|${colour}|${focused}`;
     if (control.mark === signature) return;
     control.mark = signature;
     const { g, w, h, texture } = control.face, u = size * DENSITY, x = w / 2, y = h / 2;
@@ -468,6 +480,12 @@ function build(canvas, fail) {
       g.lineWidth = 0.075 * u; g.beginPath(); g.moveTo(0, 0.1 * u); g.lineTo(0, 0.56 * u); g.stroke(); g.restore();
     } else {
       g.font = type(600, size); g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(name, x, y + 0.01 * DENSITY);
+    }
+    if (focused) {
+      // Keyboard focus: a lit outline just inside the edge of the cap.
+      const inset = 0.036 * DENSITY;
+      g.strokeStyle = ENGRAVED.on; g.lineWidth = 0.02 * DENSITY;
+      g.beginPath(); g.roundRect(inset, inset, w - inset * 2, h - inset * 2, 0.018 * DENSITY); g.stroke();
     }
     texture.needsUpdate = true;
   }
@@ -534,15 +552,22 @@ function build(canvas, fail) {
 
   function markKeys() {
     const transport = ready ? ENGRAVED.on : ENGRAVED.off;
-    mark(controls.spotify, 'Spotify', data.selected === 'spotify' ? ENGRAVED.on : ENGRAVED.idle, 0.118);
-    mark(controls.music, 'Apple Music', data.selected === 'music' ? ENGRAVED.on : ENGRAVED.idle, 0.118);
-    mark(controls.playPause, playing ? 'pause' : 'play', transport, 0.19);
-    mark(controls.previous, 'previous', transport, 0.13);
-    mark(controls.next, 'next', transport, 0.13);
-    mark(controls.pin, 'pin', data.alwaysOnTop ? ENGRAVED.on : ENGRAVED.idle, 0.16);
+    const focus = data.focus;
+    mark(controls.spotify, 'Spotify', data.selected === 'spotify' ? ENGRAVED.on : ENGRAVED.idle, 0.118, focus === 'spotify');
+    mark(controls.music, 'Apple Music', data.selected === 'music' ? ENGRAVED.on : ENGRAVED.idle, 0.118, focus === 'music');
+    mark(controls.playPause, playing ? 'pause' : 'play', transport, 0.19, focus === 'playPause');
+    mark(controls.previous, 'previous', transport, 0.13, focus === 'previous');
+    mark(controls.next, 'next', transport, 0.13, focus === 'next');
+    mark(controls.pin, 'pin', data.alwaysOnTop ? ENGRAVED.on : ENGRAVED.idle, 0.16, focus === 'pin');
     controls.spotify.sunk = data.selected === 'spotify';
     controls.music.sunk = data.selected === 'music';
     controls.pin.sunk = !!data.alwaysOnTop;
+    armFocus.mesh.visible = focus === 'seek' && ready && duration > 0;
+    lightKeys();
+  }
+  // A cap under the pointer or holding keyboard focus catches a little more light.
+  function lightKeys() {
+    for (const [action, control] of Object.entries(controls)) control.cap.material.emissive.setScalar(control === hovered || data.focus === action ? 0.028 : 0);
   }
 
   // ---- frame ------------------------------------------------------------
@@ -578,8 +603,9 @@ function build(canvas, fail) {
     wall.armAngle.value = armAngle;
 
     for (const control of Object.values(controls)) {
-      const depth = Math.max(control.held ? KEY.travel : 0, control.sunk ? KEY.sunk : 0);
-      control.travel = settle(control.travel, depth, 0.045, 0.0005);
+      const pressed = control.held || control.pulse > now;
+      if (control.pulse > now) moving = true;
+      control.travel = settle(control.travel, Math.max(pressed ? KEY.travel : 0, control.sunk ? KEY.sunk : 0), 0.045, 0.0005);
       control.group.position.z = control.base - control.travel;
     }
     lamp = settle(lamp, data.alwaysOnTop ? 1 : 0, 0.18, 0.004);
@@ -645,12 +671,7 @@ function build(canvas, fail) {
   }
   function hover(action) {
     const control = controls[action] || null;
-    if (hovered !== control) {
-      hovered?.cap.material.emissive.setScalar(0);
-      hovered = control;
-      hovered?.cap.material.emissive.setScalar(0.028);
-      schedule();
-    }
+    if (hovered !== control) { hovered = control; lightKeys(); schedule(); }
     canvas.style.cursor = dragging ? 'grabbing' : action === 'seek' ? 'grab' : action ? 'pointer' : 'default';
   }
   function drag(event) {
@@ -721,6 +742,8 @@ function build(canvas, fail) {
 
   window.turntable = {
     onAction(fn) { handler = typeof fn === 'function' ? fn : () => {}; },
+    // A key worked from the keyboard dips like one pressed by hand.
+    press(action) { if (controls[action]) { controls[action].pulse = performance.now() + 150; schedule(); } },
     update(next) {
       data = next || data;
       const track = data.track || {}, now = performance.now();

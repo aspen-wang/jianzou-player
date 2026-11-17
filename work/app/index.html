@@ -25,14 +25,14 @@
         <p id="artist">打开音乐应用，播放一首歌。</p>
         <p id="album" hidden></p>
       </div>
+      <div class="controls">
+        <button id="play" class="play" type="button" aria-label="播放" disabled>播放</button>
+        <button id="previous" type="button" aria-label="上一首" disabled>上一首</button>
+        <button id="next" type="button" aria-label="下一首" disabled>下一首</button>
+      </div>
       <div class="timeline">
         <input id="seek" type="range" min="0" max="1" value="0" step="0.1" aria-label="播放进度" disabled>
         <div class="times"><span id="elapsed">0:00</span><span id="remaining">0:00</span></div>
-      </div>
-      <div class="controls">
-        <button id="previous" type="button" aria-label="上一首" disabled>上一首</button>
-        <button id="play" class="play" type="button" aria-label="播放" disabled>播放</button>
-        <button id="next" type="button" aria-label="下一首" disabled>下一首</button>
       </div>
       <p id="message" class="message" role="status"></p>
     </section>
