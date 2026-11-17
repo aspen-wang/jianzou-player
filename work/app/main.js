@@ -136,8 +136,8 @@ async function command(source, action, value) {
 
 function createWindow() {
   windowRef = new BrowserWindow({
-    width: 980, height: 660, minWidth: 760, minHeight: 510,
-    title: '间奏', backgroundColor: '#4b4a4d', titleBarStyle: 'hiddenInset',
+    width: 960, height: 720, minWidth: 760, minHeight: 570,
+    title: '间奏', backgroundColor: '#c8c8c8', titleBarStyle: 'hiddenInset',
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false, sandbox: true }
   });
   windowRef.loadFile(path.join(__dirname, 'index.html'));

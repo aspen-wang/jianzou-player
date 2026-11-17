@@ -11,6 +11,13 @@
 - `work/app/index.html`、`styles.css`：应用入口、键盘访问和 WebGL 不可用时的备用界面。
 - `work/packaging/`：生成应用图标、临时签名和 DMG 的脚本。
 
+## 操作
+
+- 电机块上的按键：选择 Spotify 或 Apple Music、播放或暂停、上一首、下一首。
+- 拖动唱臂调整进度，唱针从外圈走到内圈对应整首歌；点唱片中心的封面也可以播放或暂停。
+- 左上角带图钉的按键让窗口保持置顶，旁边的灯管亮起表示已置顶。
+- 键盘：空格播放或暂停，Tab 进入备用控件。
+
 ## 本地开发
 
 需要 macOS、Node.js、npm 和 Apple Command Line Tools。当前构建与安装包以 Apple 芯片 Mac 为目标。
